@@ -17,14 +17,14 @@ def scan_message(timing: str, mode: str, protocol: str):
     """Print an appropriate message regarding the port scanning progress.
 
     Args:
-        timing: scan stage (just started - 'starting' or completed - 'end').
+        timing: scan stage (just started - 'starting', already done - 'skip' or completed - 'end').
         mode: type of scan (quick scan, service scan, vuln scan or directory scan).
         protocol: protocol of scan (TCP, UDP or HTTP)
     """
 
     timing = timing.lower()
-    if timing not in ["start", "end"]:
-        raise ValueError("Invalid time. Time should be 'start' or 'end'.")
+    if timing not in ["start", "skip", "end"]:
+        raise ValueError("Invalid time. Time should be 'start', 'skip' or 'end'.")
 
     mode = mode.lower()
     if mode not in ["quick", "service", "vuln"]:
@@ -42,6 +42,15 @@ def scan_message(timing: str, mode: str, protocol: str):
             line = f"Starting {protocol} service scan."
         elif mode == "vuln":
             line = f"Starting {protocol} vulnerability scan."
+    elif timing == "skip":
+        if mode == "quick":
+            line = f"Skipping quick {protocol} scan. File already exists."
+        elif mode == "service":
+            line = f"Skipping {protocol} service scan. File already exists."
+        elif mode == "vuln":
+            line = f"Skipping {protocol} vulnerability scan. File already exists."
+        else:
+            line = "Skipping directory scan. No open ports found."
     else:
         if mode == "quick":
             line = f"Quick {protocol} scan completed."
@@ -91,6 +100,10 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
             _protocol: protocol of scan
         """
 
+        if os.path.isfile(quick_file + ".nmap"):  # If file exists skips scanning
+            scan_message('skip', 'quick', protocol)
+            return
+
         if _protocol == "tcp":
             command = "nmap -p- "  # Scan all TCP ports
         else:
@@ -110,6 +123,10 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
             _target: address to be scanned
             _protocol: protocol of scan
         """
+
+        if os.path.isfile(service_file + ".nmap"):  # If file exists skip scanning
+            scan_message('skip', 'service', protocol)
+            return
 
         _quick_file = quick_file + ".nmap"
         if not os.path.isfile(_quick_file):
@@ -141,6 +158,10 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
 
         _quick_file = quick_file + ".nmap"
         vuln_file = f"{directory}/vuln_{_protocol.lower()}_scan"
+
+        if os.path.isfile(vuln_file + ".nmap"):  # If file exists skip scanning
+            scan_message('skip', 'vuln', protocol)
+            return
 
         if not os.path.isfile(_quick_file + ".nmap"):
             message = f"Quick scan file '{_quick_file}.nmap' doesn't exist.\n" \
