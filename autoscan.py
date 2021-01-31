@@ -68,13 +68,14 @@ def scan_message(timing: str, mode: str, protocol: str):
     print()
 
 
-def scan_ports(target: str, protocol: str, vuln: bool = False):
+def scan_ports(target: str, protocol: str, vuln: bool = False, skip_host_discovery: bool = True):
     """Perform a port scanning of the given target.
 
     Args:
         target: address to be scanned
         protocol: protocol of scan
         vuln: if set, also perform vulnerability scan on the target, using the 'nmap-vulners' script
+        skip_host_discovery: if set, skips host discovery, otherwise checks if host is up before scanning
 
     First, a 'quick' scan (checking open ports) will be performed, then a service scan (checking the services running
     on the open ports found) will be performed. If needed, there the 'vuln' scan will be performed after the service
@@ -92,12 +93,13 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
     quick_file = f"{directory}/quick_{protocol}_scan"
     service_file = f"{directory}/service_{protocol}_scan"
 
-    def quick_scan(_target: str, _protocol: str):
+    def quick_scan(_target: str, _protocol: str, _skip_host_discovery: bool = True):
         """Scan the target for open ports. Doesn't provide any info besides whether the port is open or not.
 
         Args:
             _target: address to be scanned
             _protocol: protocol of scan
+            _skip_host_discovery: if set, skips host discovery, otherwise checks if host is up before scanning
         """
 
         if os.path.isfile(quick_file + ".nmap"):  # If file exists skips scanning
@@ -116,12 +118,13 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
         scan_message('end', 'quick', protocol)  # Prints scan completed message
 
     # noinspection DuplicatedCode
-    def service_scan(_target: str, _protocol: str):
+    def service_scan(_target: str, _protocol: str, _skip_host_discovery: bool = True):
         """Perform a service scan on the given target. Requires a quick scan file to be present.
 
         Args:
             _target: address to be scanned
             _protocol: protocol of scan
+            _skip_host_discovery: if set, skips host discovery, otherwise checks if host is up before scanning
         """
 
         if os.path.isfile(service_file + ".nmap"):  # If file exists skip scanning
@@ -148,12 +151,13 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
         scan_message('end', 'service', protocol)  # Prints scan completed message
 
     # noinspection DuplicatedCode
-    def vuln_scan(_target: str, _protocol: str):
+    def vuln_scan(_target: str, _protocol: str, _skip_host_discovery: bool = True):
         """Perform a vulnerability scan on the given target.
 
         Args:
             _target: address to be scanned
             _protocol: protocol of scan
+            _skip_host_discovery: if set, skips host discovery, otherwise checks if host is up before scanning
         """
 
         _quick_file = quick_file + ".nmap"
@@ -181,10 +185,10 @@ def scan_ports(target: str, protocol: str, vuln: bool = False):
         os.system(command)  # Scans the target
         scan_message("end", "vuln", protocol)  # Prints scan completed message
 
-    quick_scan(target, protocol)
-    service_scan(target, protocol)
+    quick_scan(target, protocol, skip_host_discovery)
+    service_scan(target, protocol, skip_host_discovery)
     if vuln:
-        vuln_scan(target, protocol)
+        vuln_scan(target, protocol, skip_host_discovery)
 
 
 def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
@@ -312,6 +316,9 @@ def main():
                              help="perform vulnerability scanning, using nmap-vulners",
                              action="store_true",
                              default=False)
+    parser_port.add_argument("-Pn", "--skip-host-discovery",
+                             help="skip host discovery", action="store_true",
+                             default=False)
 
     parser_dir = subparsers.add_parser("dir", parents=[parent_parser], help="directory scanning")
     parser_dir.add_argument("--threads", help="number of threads", type=int,
@@ -342,7 +349,7 @@ def main():
             protocol = "udp"
         else:
             protocol = "tcp"
-        scan_ports(args.target, protocol, args.vuln)
+        scan_ports(args.target, protocol, args.vuln, args.skip_host_discovery)
     else:
         if not args.port:
             ports = get_http_ports(args.file)

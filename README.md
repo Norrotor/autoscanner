@@ -27,6 +27,7 @@ sudo apt install gobuster
 ./autoscan.py dir -p 80 -w big.txt 10.10.10.10
 ./autoscan.py dir -p 80,8080 -w /usr/share/wordlists/dirb/common.txt 10.10.10.10
 ./autoscan.py port 10.10.10.10
+./autoscan.py port -Pn 10.10.10.10
 ```
 
 If you want to be able to use it from anywhere on the system, copy it to */usr/local/bin* using:
