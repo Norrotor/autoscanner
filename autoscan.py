@@ -193,7 +193,8 @@ def scan_ports(target: str, protocol: str, vuln: bool = False, skip_host_discove
 
 def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
              threads: int = 50,
-             status_codes: str = "200,204,301,302,307,401,403"):
+             status_codes: str = "200,204,301,302,307,401,403",
+             skip_ssl: bool = False):
     """Perform a file and directory scan on the target.
 
     Args:
@@ -203,12 +204,14 @@ def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
         extensions: extensions of files
         threads: number of threads to use in scan
         status_codes: response status codes to show
+        skip_ssl: skips SSL certificate check
     """
 
     def child_dir_scan(_target: str, _port: int, _wordlist: str,
                        _extensions: str = None,
                        _threads: int = 50,
-                       _status_codes: str = "200,204,301,302,307,401,403"):
+                       _status_codes: str = "200,204,301,302,307,401,403",
+                       _skip_ssl: bool = False):
         """Scan the files and directories on the web server.
 
         Args:
@@ -218,6 +221,7 @@ def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
             _extensions: extensions to search for, along with directories
             _threads: number of threads to use in scan
             _status_codes: response status codes to show
+            _skip_ssl: skips SSL certificate check
         """
 
         # Ensures known wordlists contain full path
@@ -229,7 +233,8 @@ def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
             _wordlist = "/usr/share/wordlists/dirbuster/directory-list-2.3-" + _wordlist + ".txt"
 
         # Ensures target starts with 'http://'
-        if not (_target.startswith('http://') or _target.startswith('https://')):
+        if not (_target.startswith('http://') or _target.startswith(
+                'https://')):
             _target = "http://" + _target
 
         # Removes trailing slash
@@ -250,18 +255,22 @@ def scan_dir(target: str, ports: List[int], wordlist: str, extensions: str,
 
         # Scan command
         command = (
-            f"gobuster dir -u {_target}:{_port}/{dir_path} -w {_wordlist} "
+            f"gobuster dir -u {target}:{_port}/{dir_path} -w {_wordlist} "
             f" -t {_threads} -s {_status_codes} -o {out_file}")
 
         if _extensions is not None:
             command += f" -x {_extensions}"
+
+        if _skip_ssl:
+            command += " -k"
 
         os.system(command)  # Runs scan
 
     if ports:
         for port in ports:
             p = Process(target=child_dir_scan, args=(
-                target, port, wordlist, extensions, threads, status_codes))
+                target, port, wordlist, extensions, threads, status_codes,
+                skip_ssl))
             p.start()
             p.join()
             print()
@@ -330,6 +339,8 @@ def main():
     parser_dir.add_argument("-s", "--status-codes",
                             help="comma separated list of status codes to show",
                             default="200,204,301,302,307,401,403")
+    parser_dir.add_argument("-k", "--skip-ssl", help="skip SSL certificate check",
+                            default=False, action="store_true")
     port_group = parser_dir.add_mutually_exclusive_group()
     port_group.add_argument("-p", "--port",
                             help="comma separated list of port(s) with web servers listening")
@@ -364,7 +375,7 @@ def main():
                 raise ValueError("Invalid port(s). Ports should be an integer or a comma separated "
                                  "list of integers.")
         scan_dir(args.target, ports, args.wordlist, args.extensions, args.threads,
-                 args.status_codes)
+                 args.status_codes, args.skip_ssl)
 
 
 if __name__ == '__main__':
